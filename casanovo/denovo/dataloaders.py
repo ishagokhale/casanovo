@@ -11,40 +11,38 @@ import pytorch_lightning as pl
 
 from ..data import AnnotatedSpectrumDataset, SpectrumDataset
 
-
 class DeNovoDataModule(pl.LightningDataModule):
-    """Prepare data for a Spec2Pep.
+    """
+    Prepare data for a Spec2Pep.
 
-    Parameters
-    ----------
-    train_index : AnnotatedSpectrumIndex
-        The spectrum index file for training.
-    valid_index : AnnotatedSpectrumIndex
-        The spectrum index file for validation.
-    test_index : AnnotatedSpectrumIndex
-        The spectrum index file for testing.
-    batch_size : int, optional
-        The batch size to use for training and evaluations
-    n_peaks : int, optional
-        Keep only the top-n most intense peaks in any spectrum. ``None``
+    :param train_index: The spectrum index file for training.
+    :type train_index: AnnotatedSpectrumIndex
+    :param valid_index: The spectrum index file for validation.
+    :type valid_index: AnnotatedSpectrumIndex
+    :param test_index: The spectrum index file for testing.
+    :type test_index: AnnotatedSpectrumIndex
+    :param batch_size: The batch size to use for training and evaluations
+    :type batch_size: int, optional
+    :param n_peaks: Keep only the top-n most intense peaks in any spectrum. ``None``
         retains all of the peaks.
-    min_mz : float, optional
-        The minimum m/z to include. The default is 140 m/z, in order to
+    :type n_peaks: int, optional
+    :param min_mz: The minimum m/z to include. The default is 140 m/z, in order to
         exclude TMT and iTRAQ reporter ions.
-    max_mz : float, optional
-        The maximum m/z to include. 
-    min_intensity : float, optional
-        Remove peaks whose intensity is below `min_intensity` percentage
+    :type min_mz: float, optional
+    :param max_mz: The maximum m/z to include. 
+    :type max_mz: float, optional
+    :param min_intensity: Remove peaks whose intensity is below `min_intensity` percentage
         of the intensity of the most intense peak
-    fragment_tol_mass : float, optional
-        Fragment mass tolerance around the precursor mass in Da to remove the
-        precursor peak.       
-    num_workers : int, optional
-        The number of workers to use for data loading. By default, the number
+    :type min_intensity: float, optional
+    :param fragment_tol_mass: Fragment mass tolerance around the precursor mass in Da to remove the
+        precursor peak. 
+    :type fragment_tol_mass: float, optional
+    :param num_workers: The number of workers to use for data loading. By default, the number
         of available CPU cores on the current machine is used.
-    random_state : int or Generator, optional.
-        The numpy random state. ``None`` leaves mass spectra in the order
+    :type num_workers: int, optional
+    :param random_state: The numpy random state. ``None`` leaves mass spectra in the order
         they were parsed.
+    :type random_state: int or Generator, optional.
     """
 
     def __init__(
@@ -84,15 +82,13 @@ class DeNovoDataModule(pl.LightningDataModule):
             self.num_workers = os.cpu_count()
 
     def setup(self, stage=None, annotated=True):
-        """Set up the PyTorch Datasets.
+        """
+        Sets up the PyTorch Datasets.
 
-        Parameters
-        ----------
-        stage : str {"fit", "validate", "test"}
-            The stage indicating which Datasets to prepare. All are prepared
-            by default.
-        annotated: bool
-            True if peptide sequence annotations available for test data
+        :param stage: The stage indicating which Datasets to prepare. All are prepared by default.
+        :type stage: str {"fit", "validate", "test"}
+        :param annotated: True if peptide sequence annotations available for test data
+        :type annotated: bool
         """
 
         if stage in (None, "fit", "validate"):
@@ -138,17 +134,13 @@ class DeNovoDataModule(pl.LightningDataModule):
                 self.test_dataset = make_dataset(self.test_index)
                 
     def _make_loader(self, dataset):
-        """Create a PyTorch DataLoader.
+        """
+        Creates a PyTorch DataLoader.
 
-        Parameters
-        ----------
-        dataset : torch.utils.data.Dataset
-            A PyTorch Dataset.
-
-        Returns
-        -------
-        torch.utils.data.DataLoader
-            A PyTorch DataLoader.
+        :param dataset: A PyTorch dataset
+        :type dataset: torch.utils.data.Dataset
+        :return: *loader* - A PyTorch DataLoader
+        :rtype: torch.utils.data.DataLoader
         """
         return torch.utils.data.DataLoader(
             dataset,
@@ -172,26 +164,22 @@ class DeNovoDataModule(pl.LightningDataModule):
 
 
 def prepare_batch(batch):
-    """This is the collate function
+    """
+    This is the collate function
 
     The mass spectra must be padded so that they fit nicely as a tensor.
     However, the padded elements are ignored during the subsequent steps.
 
-    Parameters
-    ----------
-    batch : tuple of tuple of torch.Tensor
-        A batch of data from an AnnotatedSpectrumDataset.
-
-    Returns
-    -------
-    spectra : torch.Tensor of shape (batch_size, n_peaks, 2)
-        The mass spectra to sequence, where ``X[:, :, 0]`` are the m/z values
-        and ``X[:, :, 1]`` are their associated intensities.
-    precursors : torch.Tensor of shape (batch_size, 2)
-        The precursor mass and charge state.
-    sequence_or_ids : list of str
-        The peptide sequence annotations in training, the spectrum identifier in de novo sequencing  
+    :param batch: A batch of data from an AnnotatedSpectrumDataset.
+    :type batch: tuple of tuple of torch.Tensor
+    :return: *spectra* - The mass spectra to sequence, where ``X[:, :, 0]`` are the m/z values and ``X[:, :, 1]`` are their associated intensities.
+    :rtype: torch.Tensor of shape (batch_size, n_peaks, 2)
+    :return: *precursors* - The precursor mass and charge state.
+    :rtype: torch.Tensor of shape (batch_size, 2)
+    :returns: *sequence_or_ids* - The peptide sequence annotations in training, the spectrum identifier in de novo sequencing.
+    :rtype: list of str
     """
+    
     spec, mz, charge, sequence_or_ids = list(zip(*batch))
     charge = torch.tensor(charge)
     mass = (torch.tensor(mz) - 1.007276) * charge

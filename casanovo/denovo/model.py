@@ -14,55 +14,54 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Spec2Pep(pl.LightningModule, ModelMixin):
-    """A Transformer model for de novo peptide sequencing.
+    """
+    A Transformer model for de novo peptide sequencing.
 
     Use this model in conjunction with a pytorch-lightning Trainer.
-
-    Parameters
-    ----------
-    dim_model : int, optional
-        The latent dimensionality used by the Transformer model.
-    n_head : int, optional
-        The number of attention heads in each layer. ``dim_model`` must be
+    
+    :param dim_model: The latent dimensionality used by the Transformer model.
+    :type dim_model: int, optional
+    :param n_head: The number of attention heads in each layer. ``dim_model`` must be
         divisible by ``n_head``.
-    dim_feedforward : int, optional
-        The dimensionality of the fully connected layers in the Transformer
+    :type n_head: int, optional
+    :param dim_feedforward: The dimensionality of the fully connected layers in the Transformer
         model.
-    n_layers : int, optional
-        The number of Transformer layers.
-    dropout : float, optional
-        The dropout probability for all layers.
-    dim_intensity : int or None, optional
-        The number of features to use for encoding peak intensity.
+    :type dim_feedforward: int, optional
+    :param n_layers: The number of Transformer layers.
+    :type n_layers: int, optional
+    :param dropout: The dropout probability for all layers.
+    :type dropout: float, optional
+    :param dim_intensity: The number of features to use for encoding peak intensity.
         The remaining (``dim_model - dim_intensity``) are reserved for
         encoding the m/z value. If ``None``, the intensity will be projected
         up to ``dim_model`` using a linear layer, then summed with the m/z
         emcoding for each peak.
-    custom_encoder : SpectrumEncoder or PairedSpectrumEncoder, optional
-        A pretrained encoder to use. The ``dim_model`` of the encoder must
+    :type dim_intensity: int or None, optional
+    :param custom_encoder: A pretrained encoder to use. The ``dim_model`` of the encoder must
         be the same as that specified by the ``dim_model`` parameter here.
-    max_length : int, optional
-        The maximum peptide length to decode.
-    residues: Dict or str {"massivekb", "canonical"}, optional
-        The amino acid dictionary and their masses. By default this is only
+    :type custom_encoder: SpectrumEncoder or PairedSpectrumEncoder, optional
+    :param max_length: The maximum peptide length to decode.
+    :type max_length: int, optional
+    :param residues: The amino acid dictionary and their masses. By default this is only
         the 20 canonical amino acids, with cysteine carbamidomethylated. If
-        "massivekb", this dictionary will include the modifications found in
+        'massivekb', this dictionary will include the modifications found in
         MassIVE-KB. Additionally, a dictionary can be used to specify a custom
         collection of amino acids and masses.
-    max_charge : int, optional
-        The maximum charge state to consider.
-    n_log : int, optional
-        The number of epochs to wait between logging messages.
-    tb_summarywriter: torch.utils.tensorboard.SummaryWriter object or None, optional
-        Object to record performance metrics during training. If ``None``, don't use a SummarWriter
-    warmup_iters: int, optional
-        Number of warm up iterations for learning rate scheduler
-    max_iters: int, optional
-        Total number of iterations for learning rate scheduler
-    output_path: str, optional
-        Path to write csv file with denovo peptide sequences        
-    **kwargs : Dict
-        Keyword arguments passed to the Adam optimizer
+    :type residues: Dict or str {"massivekb", "canonical"}, optional
+    :param max_charge: The maximum charge state to consider.
+    :type max_charge: int, optional
+    :param n_log: The number of epochs to wait between logging messages.
+    :type n_log: int, optional
+    :param tb_summarywriter: Object to record performance metrics during training. If ``None``, don't use a SummarWriter
+    :type tb_summarywriter: torch.utils.tensorboard.SummaryWriter object or None, optional
+    :param warmup_iters: Number of warm up iterations for learning rate scheduler
+    :type warmup_iters: int, optional
+    :param max_iters: Total number of iterations for learning rate scheduler
+    :type max_iters: int, optional
+    :param output_path: Path to write csv file with denovo peptide sequences  
+    :type output_path: str, optional
+    :param **kwargs: Keyword arguments passed to the Adam optimizer
+    :type **kwargs: Dict
     """
 
     def __init__(
@@ -137,26 +136,22 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         self.output_path = output_path
 
     def forward(self, spectra, precursors):
-        """Sequence a batch of mass spectra.
+        """
+        Sequence a batch of mass spectra.
 
-        Parameters
-        ----------
-        spectrum : torch.Tensor of shape (n_spectra, n_peaks, 2)
-            The spectra to embed. Axis 0 represents a mass spectrum, axis 1
+        :param spectrum: The spectra to embed. Axis 0 represents a mass spectrum, axis 1
             contains the peaks in the mass spectrum, and axis 2 is essentially
             a 2-tuple specifying the m/z-intensity pair for each peak. These
             should be zero-padded, such that all of the spectra in the batch
             are the same length.
-        precursors : torch.Tensor of size (n_spectra, 2)
-            The measured precursor mass (axis 0) and charge (axis 1) of each
+        :type spectrum: torch.Tensor of shape (n_spectra, n_peaks, 2)
+        :param precursors: The measured precursor mass (axis 0) and charge (axis 1) of each
             tandem mass spectrum.
-
-        Returns
-        -------
-        sequences : list or str
-            The sequence for each spectrum.
-        scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
-            The score for each amino acid.
+        :type precursors: torch.Tensor of size (n_spectra, 2)
+        :return: *sequences* - The sequence for each spectrum.
+        :rtype: list or str
+        :return: *scores* - The score for each amino acid.
+        :rtype: torch.Tensor of shape (n_spectra, length, n_amino_acids)
         """
         spectra = spectra.to(self.encoder.device)
         precursors = precursors.to(self.decoder.device)
@@ -165,49 +160,40 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         return sequences, scores
 
     def predict_step(self, batch, *args):
-        """Sequence a batch of mass spectra.
+        """
+        Sequence a batch of mass spectra.
 
         Note that this is used within the context of a pytorch-lightning
         Trainer to generate a prediction.
 
-        Parameters
-        ----------
-        batch : tuple of torch.Tensor
-            A batch is expected to contain mass spectra (index 0) and the
+        :param batch: A batch is expected to contain mass spectra (index 0) and the
             precursor mass and charge (index 1). It may have more indices,
             but these will be ignored.
-
-
-        Returns
-        -------
-        sequences : list or str
-            The sequence for each spectrum.
-        scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
-            The score for each amino acid.
+        :type batch: tuple of torch.Tensor
+        :return: *sequences* - The sequence for each spectrum.
+        :rtype: list or str
+        :return: *scores* - The score for each amino acid.
+        :rtype: torch.Tensor of shape (n_spectra, length, n_amino_acids)
         """
         return self(batch[0], batch[1])
 
     def greedy_decode(self, spectra, precursors):
-        """Greedy decode the spectra.
+        """
+        Greedy decode the spectra.
 
-        Parameters
-        ----------
-        spectrum : torch.Tensor of shape (n_spectra, n_peaks, 2)
-            The spectra to embed. Axis 0 represents a mass spectrum, axis 1
+        :param spectrum: The spectra to embed. Axis 0 represents a mass spectrum, axis 1
             contains the peaks in the mass spectrum, and axis 2 is essentially
             a 2-tuple specifying the m/z-intensity pair for each peak. These
             should be zero-padded, such that all of the spectra in the batch
             are the same length.
-        precursors : torch.Tensor of size (n_spectra, 2)
-            The measured precursor mass (axis 0) and charge (axis 1) of each
+        :type spectrum: torch.Tensor of shape (n_spectra, n_peaks, 2)
+        :param precursors: The measured precursor mass (axis 0) and charge (axis 1) of each
             tandem mass spectrum.
-
-        Returns
-        -------
-        tokens : torch.Tensor of shape (n_spectra, max_length, n_amino_acids)
-            The token sequence for each spectrum.
-        scores : torch.Tensor of shape (n_spectra, max_length, n_amino_acids)
-            The score for each amino acid.
+        :type precursors: torch.Tensor of size (n_spectra, 2)
+        :return: *tokens* - The token sequence for each spectrum.
+        :rtype: torch.Tensor of shape (n_spectra, max_length, n_amino_acids)
+        :return: *scores* - The score for each amino acid.
+        :rtype: torch.Tensor of shape (n_spectra, length, n_amino_acids)
         """
         memories, mem_masks = self.encoder(spectra)
 
@@ -247,50 +233,42 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         return self.softmax(scores), tokens
 
     def _step(self, spectra, precursors, sequences):
-        """The forward learning step.
-
-        Parameters
-        ----------
-        spectra : torch.Tensor of shape (n_spectra, n_peaks, 2)
-            The spectra to embed. Axis 0 represents a mass spectrum, axis 1
+        """
+        The forward learning step.
+        
+        :param spectra: The spectra to embed. Axis 0 represents a mass spectrum, axis 1
             contains the peaks in the mass spectrum, and axis 2 is essentially
             a 2-tuple specifying the m/z-intensity pair for each peak. These
             should be zero-padded, such that all of the spectra in the batch
             are the same length.
-        precursors : torch.Tensor of size (n_spectra, 2)
-            The measured precursor mass (axis 0) and charge (axis 1) of each
+        :type spectra: torch.Tensor of shape (n_spectra, n_peaks, 2)
+        :param precursors: The measured precursor mass (axis 0) and charge (axis 1) of each
             tandem mass spectrum.
-        sequences : list or str of length n_spectra
-            The partial peptide sequences to predict.
-
-        Returns
-        -------
-        scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
-            The raw scores for each amino acid at each position.
-        tokens : torch.Tensor of shape (n_spectra, length)
-            The best token at each sequence position
+        :type precursors: torch.Tensor of size (n_spectra, 2)
+        :param sequences: The partial peptide sequences to predict.
+        :type sequences: list or str of length n_spectra
+        :return: *scores* - The raw scores for each amino acid at each position.
+        :rtype: torch.Tensor of shape (n_spectra, length, n_amino_acids)
+        :return: *tokens* - The best token at each sequence position
+        :rtype: torch.Tensor of shape (n_spectra, length)
         """
         memory, mem_mask = self.encoder(spectra)
         scores, tokens = self.decoder(sequences, precursors, memory, mem_mask)
         return scores, tokens
 
     def training_step(self, batch, *args):
-        """A single training step
+        """
+        A single training step
 
         Note that this is used within the context of a pytorch-lightning
         Trainer to generate a prediction.
 
-        Parameters
-        ----------
-        batch : tuple of torch.Tensor
-            A batch is expected to contain mass spectra (index 0), the
+        :param batch: A batch is expected to contain mass spectra (index 0), the
             precursor mass and charge (index 1), and the peptide sequence
             (index 2)
-
-        Returns
-        -------
-        torch.Tensor
-            The loss.
+        :type batch: tuple of torch.Tensor
+        :return: *loss* - The loss
+        :rtype: torch.Tensor
         """
         
         spectra, precursors, sequences = batch       
@@ -308,22 +286,18 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         return loss
 
     def validation_step(self, batch, *args):
-        """A single validation step
+        """
+        A single validation step
 
         Note that this is used within the context of a pytorch-lightning
         Trainer to generate a prediction.
 
-        Parameters
-        ----------
-        batch : tuple of torch.Tensor
-            A batch is expected to contain mass spectra (index 0), the
+        :param batch: A batch is expected to contain mass spectra (index 0), the
             precursor mass and charge (index 1), and the peptide sequence
             (index 2)
-
-        Returns
-        -------
-        torch.Tensor
-            The loss.
+        :type batch: tuple of torch.Tensor
+        :return: *loss* - The loss
+        :rtype: torch.Tensor
         """
         spectra, precursors, sequences = batch
         pred, truth = self._step(spectra, precursors, sequences)
@@ -386,18 +360,16 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         return loss
     
     def test_step(self, batch, *args):
-        """A single test step
+        """
+        A single test step
 
         Note that this is used within the context of a pytorch-lightning
         Trainer to generate a prediction.
 
-        Parameters
-        ----------
-        batch : tuple of torch.Tensor
-            A batch is expected to contain mass spectra (index 0), the
-            precursor mass and charge (index 1), and the spectrum identifier
+        :param batch: A batch is expected to contain mass spectra (index 0), the
+            precursor mass and charge (index 1), and the peptide sequence
             (index 2)
-
+        :type batch: tuple of torch.Tensor
         """
         #De novo sequence the batch
         pred_seqs, scores = self.predict_step(batch)
@@ -406,7 +378,8 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
           
     
     def on_train_epoch_end(self):
-        """Log the training loss.
+        """
+        Log the training loss.
 
         This is a pytorch-lightning hook.
         """
@@ -414,7 +387,8 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         self._history[-1]["train"] = train_loss
         
     def on_validation_epoch_end(self):
-        """Log the epoch metrics to self.history.
+        """
+        Log the epoch metrics to self.history.
 
         This is a pytorch-lightning hook.
         """
@@ -428,7 +402,8 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         self._history.append(metrics)
         
     def on_test_epoch_end(self):
-        """Write de novo sequences and confidence scores to csv file.
+        """
+        Write de novo sequences and confidence scores to csv file.
 
         This is a pytorch-lightning hook.
         """
@@ -493,15 +468,14 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
                         self.tb_summarywriter.add_scalar('eval/dev_pep_recall', metrics.get("valid_pep_recall", np.nan), metrics["epoch"]+1)
 
     def configure_optimizers(self):
-        """Initialize the optimizer.
+        """
+        Initialize the optimizer.
 
         This is used by pytorch-lightning when preparing the model for
         training.
 
-        Returns
-        -------
-        torch.optim.Adam
-            The intialized Adam optimizer.
+        :return: *adam* - The intialized Adam optimizer.
+        :rtype: torch.optim.Adam
         """
         optimizer = torch.optim.Adam(self.parameters(), **self.opt_kwargs)
 
@@ -511,15 +485,14 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         return [optimizer], [{'scheduler': lr_scheduler, 'interval': 'step'}]
     
 class CosineWarmupScheduler(torch.optim.lr_scheduler._LRScheduler):
-    """Learning rate scheduler with linear warm up followed by cosine shaped decay.
-    Parameters
-    ----------
-    optimizer :  torch.optim
-        Optimizier object
-    warmup :  int
-        Number of warm up iterations
-    max_iters :  torch.optim
-        Total number of iterations
+    """
+    Learning rate scheduler with linear warm up followed by cosine shaped decay.
+    :param optimizer: Optimizier object
+    :type optimizer: torch.optim
+    :param warmup: Number of warm up iterations
+    :type warmup: int
+    :param max_iters: Total number of iterations
+    :type max_iters: torch.optim
     """    
 
     def __init__(self, optimizer, warmup, max_iters):
