@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from depthcharge.components import SpectrumEncoder, PeptideDecoder, ModelMixin
 from depthcharge.embed.model import SiameseSpectrumEncoder
 from .evaluate import batch_aa_match, calc_eval_metrics
+from torch.utils.tensorboard import SummaryWriter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -125,8 +126,11 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         self._history = []
         self.opt_kwargs = kwargs
         self.stop_token = self.decoder._aa2idx["$"]
-        
-        self.tb_summarywriter = tb_summarywriter
+
+        if(tb_summarywriter):
+            self.tb_summarywriter = SummaryWriter()
+        else:
+            self.tb_summarywriter = tb_summarywriter
                
         self.warmup_iters = warmup_iters
         self.max_iters = max_iters
@@ -283,6 +287,8 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
             on_epoch=True,
             sync_dist=True,
         )
+        if self.tb_summarywriter is not None:
+            self.tb_summarywriter.add_scalar('train loss/batch', loss, self.global_step)
         return loss
 
     def validation_step(self, batch, *args):
@@ -356,7 +362,8 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
             sync_dist=True,
         )         
         
-        
+        if self.tb_summarywriter is not None:
+            self.tb_summarywriter.add_scalar('val loss/batch', loss, self.global_step)
         return loss
     
     def test_step(self, batch, *args):

@@ -8,7 +8,7 @@ from casanovo.denovo import train, evaluate, denovo
 #Required options
 @click.command()
 @click.option("--mode", required=True, default='eval', help="Choose on a high level what the program will do. \"train\" will train a model from scratch or continue training a pre-trained model. \"eval\" will evaluate de novo sequencing performance of a pre-trained model (peptide annotations are needed for spectra). \"denovo\" will run de novo sequencing without evaluation (specificy directory path for output csv file with de novo sequences).", type=click.Choice(['train', 'eval', 'denovo']))
-@click.option("--model_path", required=True, help="Specify path to pre-trained model weights (.ckpt file) for testing or to continue to train.", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.option("--model_path", required=False, help="Specify path to pre-trained model weights (.ckpt file) for testing or to continue to train.", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 #Base options
 @click.option("--train_data_path", help="Specify path to .mgf files to be used as training data", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.option("--val_data_path", help="Specify path to .mgf files to be used as validation data", type=click.Path(exists=True, dir_okay=True, file_okay=False))
@@ -35,7 +35,7 @@ def main(
     gpus
 ):
     """
-    The command line function for casanovo. De Novo Mass Spectrometry Peptide Sequencing with a Transformer Model.
+    The command line function for casanovo. De Novo Mass Spectrometry Peptide Sequencing with a Transformer Model. (MODIFIED FOR MSKB TRAINING)
     
     \b
     Training option requirements:
@@ -67,6 +67,7 @@ def main(
             config['num_workers'] = num_workers
     if(gpus != ()):
             config['gpus'] = gpus
+
     if mode == 'train':
 
         logging.info('Training Casanovo...')
