@@ -252,6 +252,9 @@ class AnnotatedSpectrumDataset(SpectrumDataset):
             The precursor charge.
         annotation : str
             The peptide annotation of the spectrum.
+        spectrum_id: Tuple[str, str]
+            The unique spectrum identifier, formed by its original peak file and
+            identifier (index or scan number) therein.
         """
         (
             mz_array,
@@ -263,4 +266,29 @@ class AnnotatedSpectrumDataset(SpectrumDataset):
         spectrum = self._process_peaks(
             mz_array, int_array, precursor_mz, precursor_charge
         )
-        return spectrum, precursor_mz, precursor_charge, peptide
+        return (
+            spectrum,
+            precursor_mz,
+            precursor_charge,
+            peptide,
+            self.get_spectrum_id(idx),
+        )
+
+    def get_spectrum_id(self, idx: int) -> Tuple[str, str]:
+        """
+        Return the identifier of the MS/MS spectrum with the given index.
+
+        Parameters
+        ----------
+        idx : int
+            The index of the MS/MS spectrum within the SpectrumIndex.
+
+        Returns
+        -------
+        ms_data_file : str
+            The peak file from which the MS/MS spectrum was originally parsed.
+        identifier : str
+            The MS/MS spectrum identifier, per PSI recommendations.
+        """
+        with self.index:
+            return self.index.get_spectrum_id(idx)

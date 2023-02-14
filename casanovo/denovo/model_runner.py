@@ -392,7 +392,7 @@ def db_search(
         strategy=_get_strategy(),
     )
     # Run the model
-    trainer.predict(model, loaders.test_dataloader())
+    trainer.predict(model, loaders.db_dataloader())
     # Clean up temporary files.
     tmp_dir.cleanup()
 

@@ -1061,6 +1061,7 @@ class DBSpec2Pep(Spec2Pep):
             sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
             pred = sm(pred)
             score_result, per_aa_score = calc_match_score(pred, truth)
+            print(batch)  #! Now has "index="" data!
             self.save_info(score_result, per_aa_score)
 
     def save_info(self, score_result, per_aa_score):
@@ -1069,6 +1070,11 @@ class DBSpec2Pep(Spec2Pep):
             out_writer.writerow(score_result)
             # out_writer.writerow([z[::-1] for z in [[float("%0.5f" % x) for x in y] for y in per_aa_score]])
             out_f.close()
+
+    def on_predict_epoch_end(
+        self, results: List[List[Tuple[np.ndarray, List[str], torch.Tensor]]]
+    ) -> None:
+        return None
 
 
 def new_batch_generator(batch):
