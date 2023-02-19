@@ -633,13 +633,27 @@ def test_calc_match_score_small():
     truth_labels = torch.tensor([[1, 2, 3, 28]])  # GAS
     pred_test = torch.FloatTensor(1, 5, 29)
     pred_test = pred_test.zero_()
-    pred_test[0][0][1] = 7
-    pred_test[0][1][2] = 5
-    pred_test[0][2][3] = 3
-    pred_test[0][3][28] = 20  # Should be ignored
-    pred_test[0][4][28] = 20  # Should be ignored
+    pred_test[0][0][1] = 1.0
 
-    assert [5] == calc_match_score(pred_test, truth_labels)
+    pred_test[0][1][2] = 0.75
+    pred_test[0][1][0] = 0.25
+
+    pred_test[0][2][3] = 0.75
+    pred_test[0][2][0] = 0.25
+
+    pred_test[0][3][28] = 0.99  # Should be ignored
+
+    pred_test[0][4][28] = 0.99  # Should be ignored
+
+    # 1 + 0.75 + 0.75 = 2.5
+    # 2.5/3 = EXPECTED
+
+    assert [2.5 / 3] == pytest.approx(
+        calc_match_score(pred_test, truth_labels)[0]
+    )
+    assert [1.0, 0.75, 0.75] == pytest.approx(
+        calc_match_score(pred_test, truth_labels)[1][0]
+    )
 
 
 def test_calc_match_score_batch():
@@ -647,19 +661,39 @@ def test_calc_match_score_batch():
     truth_labels = torch.tensor([[3, 2, 1, 28], [18, 2, 5, 28]])  # GAS, #VAR
     pred_test = torch.FloatTensor(2, 5, 29)
     pred_test = pred_test.zero_()
-    pred_test[0][0][3] = 7.0
-    pred_test[0][1][2] = 5.0
-    pred_test[0][2][1] = 3.0
-    pred_test[0][3][28] = 20.0  # Should be ignored
-    pred_test[0][4][28] = 20.0  # Should be ignored
+    pred_test[0][0][3] = 1.0
 
-    pred_test[1][0][18] = 3.0
-    pred_test[1][1][2] = 4.0
-    pred_test[1][2][5] = 0.5
-    pred_test[0][3][28] = 20.0  # Should be ignored
-    pred_test[0][4][28] = 20.0  # Should be ignored
+    pred_test[0][1][2] = 0.6
+    pred_test[0][1][0] = 0.4
 
-    assert [5, 2.5] == calc_match_score(pred_test, truth_labels)
+    pred_test[0][2][1] = 0.9
+    pred_test[0][2][0] = 0.1
+
+    pred_test[0][3][28] = 0.99  # Should be ignored
+
+    pred_test[0][4][28] = 0.99  # Should be ignored
+
+    # 1 + 0.6 + 0.9 = 2.5
+    # 2.5/3 = EXPECTED
+
+    pred_test[1][0][18] = 1.0
+    pred_test[1][1][2] = 1.0
+    pred_test[1][2][5] = 1.0
+    pred_test[1][3][28] = 0.99  # Should be ignored
+    pred_test[1][4][28] = 0.99  # Should be ignored
+
+    # 1 + 1 + 1 = 3
+    # 3/3 = 1 = EXPECTED
+
+    assert [2.5 / 3, 1] == pytest.approx(
+        calc_match_score(pred_test, truth_labels)[0]
+    )
+    assert [1.0, 0.6, 0.9] == pytest.approx(
+        calc_match_score(pred_test, truth_labels)[1][0]
+    )
+    assert [1.0, 1.0, 1.0] == pytest.approx(
+        calc_match_score(pred_test, truth_labels)[1][1]
+    )
 
 
 def test_batch_generator():
@@ -667,12 +701,17 @@ def test_batch_generator():
         torch.ones(2, 4, 2),
         torch.FloatTensor(2, 3),
         ["PEPTIDE, EEPITPD", "SLSHSPGK, HKSLPSSG, VVQEQGTHPK, KVEQTGQPHV"],
+        [("filename1.mgf", "index=0"), ("filename2.mgf", "index=1")],
     )
     batches = []
-    for new_batch in new_batch_generator(input):
+    indexes = []
+    for new_batch, index in new_batch_generator(input):
         batches.append(new_batch)
+        indexes.append(index)
     assert list(batches[0][0].size()) == [2, 4, 2]
     assert list(batches[1][0].size()) == [4, 4, 2]
+    assert indexes[0] == "index=0"
+    assert indexes[1] == "index=1"
 
 
 def test_spectrum_id_mgf(mgf_small, tmp_path):

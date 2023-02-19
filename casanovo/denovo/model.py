@@ -1055,26 +1055,37 @@ class DBSpec2Pep(Spec2Pep):
         super().__init__(*args, **kwargs)
 
     def predict_step(self, batch, *args):
-        for new_batch in new_batch_generator(batch):
+        batch_res = []
+        for new_batch, index in new_batch_generator(
+            batch
+        ):  #! Include index field, modify tests
             pred, truth = self._forward_step(*new_batch)
-            # Calculate the score between spectra + peptide list
             sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
             pred = sm(pred)
-            score_result, per_aa_score = calc_match_score(pred, truth)
-            print(batch)  #! Now has "index="" data!
-            self.save_info(score_result, per_aa_score)
-
-    def save_info(self, score_result, per_aa_score):
-        with open("test.csv", "a") as out_f:
-            out_writer = csv.writer(out_f)
-            out_writer.writerow(score_result)
-            # out_writer.writerow([z[::-1] for z in [[float("%0.5f" % x) for x in y] for y in per_aa_score]])
-            out_f.close()
+            score_result, per_aa_score = calc_match_score(
+                pred, truth
+            )  # Calculate the score between spectra + peptide list
+            peptides = new_batch[2]
+            batch_res.append((index, peptides, score_result, per_aa_score))
+        return batch_res
 
     def on_predict_epoch_end(
-        self, results: List[List[Tuple[np.ndarray, List[str], torch.Tensor]]]
+        self, results: List[List[Tuple[str, List[float], List[List[float]]]]]
     ) -> None:
-        return None
+        # print(results)
+        if self.out_writer is None:
+            return
+        for pile in results:
+            for clump in pile:
+                for batch in clump:
+                    spec_idx = batch[0]
+                    for _, peptide, score, per_aa_scores in zip(*batch):
+                        with open(self.out_writer.filename, "a") as out_f:
+                            csv_writer = csv.writer(out_f)
+                            csv_writer.writerow(
+                                (spec_idx, peptide, score, per_aa_scores)
+                            )
+                            out_f.close()
 
 
 def new_batch_generator(batch):
@@ -1105,8 +1116,8 @@ def new_batch_generator(batch):
         ms_spectra = ms_spectra.repeat(len(peptides), 1, 1)
         # Create the new batch
         new_batch = (ms_spectra, precursors, peptides)
-        # Use _forward_step
-        yield new_batch
+        index = batch[3][idx][1]
+        yield (new_batch, index)
 
 
 def calc_match_score(
@@ -1136,7 +1147,6 @@ def calc_match_score(
     ]  # Remove trailing tokens from label, remove -1 to keep stop token
     all_scores = []
     per_aa_scores = []
-
     for all_aa_pred, truth_indicies in zip(
         batch_all_aa_scores, truth_aa_indicies
     ):
@@ -1150,9 +1160,9 @@ def calc_match_score(
         aa_scores = []
         for scores, true_index in zip(all_aa_pred, truth_indicies):
             aa_scores.append(scores[true_index].item())
-        normalized_score = np.mean(
-            aa_scores  #! Convert to product and normalization by length, or alternatively use LogSoftmax
-        )  # Normalize score along peptide length
+        normalized_score = sum(aa_scores) / len(
+            aa_scores
+        )  #! Convert to product and normalization by length, or alternatively use LogSoftmax
         all_scores.append(normalized_score)
         per_aa_scores.append(aa_scores)
     return all_scores, per_aa_scores

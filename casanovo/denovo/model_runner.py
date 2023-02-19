@@ -322,6 +322,7 @@ def db_search(
     peak_path: str,
     model_filename: str,
     config: Dict[str, Any],
+    out_writer: Optional[ms_io.MztabWriter] = None,
 ) -> None:
     # Load the trained model.
     if not os.path.isfile(model_filename):
@@ -346,6 +347,7 @@ def db_search(
         isotope_error_range=config["isotope_error_range"],
         n_beams=config["n_beams"],
         n_log=config["n_log"],
+        out_writer=out_writer,
     )
     # Read the MS/MS spectra for which to predict peptide sequences.
     peak_ext = (".mgf", ".h5", ".hdf5")
