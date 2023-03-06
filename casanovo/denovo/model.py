@@ -1056,9 +1056,7 @@ class DBSpec2Pep(Spec2Pep):
 
     def predict_step(self, batch, *args):
         batch_res = []
-        for new_batch, index in new_batch_generator(
-            batch
-        ):  #! Include index field, modify tests
+        for new_batch, index in new_batch_generator(batch):
             pred, truth = self._forward_step(*new_batch)
             sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
             pred = sm(pred)
@@ -1079,12 +1077,20 @@ class DBSpec2Pep(Spec2Pep):
             for clump in pile:
                 for batch in clump:
                     spec_idx = batch[0]
+                    idx = 0
                     for _, peptide, score, per_aa_scores in zip(*batch):
                         with open(self.out_writer.filename, "a") as out_f:
                             csv_writer = csv.writer(out_f)
-                            csv_writer.writerow(
-                                (spec_idx, peptide, score, per_aa_scores)
+                            csv_writer.writerow(  # Target column
+                                (
+                                    spec_idx,
+                                    peptide,
+                                    idx % 2 == 0,
+                                    score,
+                                    per_aa_scores,
+                                )
                             )
+                            idx += 1
                             out_f.close()
 
 
@@ -1140,10 +1146,10 @@ def calc_match_score(
             The score between the input spectra and associated peptide (for an entire batch)
     """
     batch_all_aa_scores = batch_all_aa_scores[
-        :, :-2, :
+        :, :-1, :  # -2
     ]  # Remove trailing tokens from predictions, change to -1 to keep stop token
     truth_aa_indicies = truth_aa_indicies[
-        :, :-1
+        :, :  # -1
     ]  # Remove trailing tokens from label, remove -1 to keep stop token
     all_scores = []
     per_aa_scores = []

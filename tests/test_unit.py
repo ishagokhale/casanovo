@@ -641,19 +641,22 @@ def test_calc_match_score_small():
     pred_test[0][2][3] = 0.75
     pred_test[0][2][0] = 0.25
 
-    pred_test[0][3][28] = 0.99  # Should be ignored
+    pred_test[0][3][28] = 1.0  # Should not be ignored
 
-    pred_test[0][4][28] = 0.99  # Should be ignored
+    pred_test[0][4][28] = 1.0  # Should be ignored
 
-    # 1 + 0.75 + 0.75 = 2.5
-    # 2.5/3 = EXPECTED
+    # 1 + 0.75 + 0.75 + 1 = 3.5
+    # 3.5/4 = EXPECTED
 
-    assert [2.5 / 3] == pytest.approx(
-        calc_match_score(pred_test, truth_labels)[0]
-    )
-    assert [1.0, 0.75, 0.75] == pytest.approx(
-        calc_match_score(pred_test, truth_labels)[1][0]
-    )
+    assert pytest.approx(calc_match_score(pred_test, truth_labels)[0]) == [
+        3.5 / 4
+    ]
+    assert pytest.approx(calc_match_score(pred_test, truth_labels)[1][0]) == [
+        1.0,
+        0.75,
+        0.75,
+        1.0,
+    ]
 
 
 def test_calc_match_score_batch():
@@ -669,31 +672,38 @@ def test_calc_match_score_batch():
     pred_test[0][2][1] = 0.9
     pred_test[0][2][0] = 0.1
 
-    pred_test[0][3][28] = 0.99  # Should be ignored
+    pred_test[0][3][28] = 1.0  # Should not be ignored
 
-    pred_test[0][4][28] = 0.99  # Should be ignored
+    pred_test[0][4][28] = 1.0  # Should be ignored
 
-    # 1 + 0.6 + 0.9 = 2.5
-    # 2.5/3 = EXPECTED
+    # 1 + 0.6 + 0.9 + 1 = 3.5
+    # 3.5/4 = EXPECTED
 
     pred_test[1][0][18] = 1.0
     pred_test[1][1][2] = 1.0
     pred_test[1][2][5] = 1.0
-    pred_test[1][3][28] = 0.99  # Should be ignored
-    pred_test[1][4][28] = 0.99  # Should be ignored
+    pred_test[1][3][28] = 1.0  # Should not be ignored
+    pred_test[1][4][28] = 1.0  # Should be ignored
 
-    # 1 + 1 + 1 = 3
-    # 3/3 = 1 = EXPECTED
+    # 1 + 1 + 1 + 1 = 4
+    # 4/4 = 1 = EXPECTED
 
-    assert [2.5 / 3, 1] == pytest.approx(
-        calc_match_score(pred_test, truth_labels)[0]
-    )
-    assert [1.0, 0.6, 0.9] == pytest.approx(
-        calc_match_score(pred_test, truth_labels)[1][0]
-    )
-    assert [1.0, 1.0, 1.0] == pytest.approx(
-        calc_match_score(pred_test, truth_labels)[1][1]
-    )
+    assert pytest.approx(calc_match_score(pred_test, truth_labels)[0]) == [
+        3.5 / 4,
+        1,
+    ]
+    assert pytest.approx(calc_match_score(pred_test, truth_labels)[1][0]) == [
+        1.0,
+        0.6,
+        0.9,
+        1.0,
+    ]
+    assert pytest.approx(calc_match_score(pred_test, truth_labels)[1][1]) == [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    ]
 
 
 def test_batch_generator():
