@@ -1077,20 +1077,20 @@ class DBSpec2Pep(Spec2Pep):
             for clump in pile:
                 for batch in clump:
                     spec_idx = batch[0]
-                    idx = 0
-                    for _, peptide, score, per_aa_scores in zip(*batch):
+                    for pair_idx, peptide in enumerate(batch[1]):
                         with open(self.out_writer.filename, "a") as out_f:
+                            score = batch[2][pair_idx]
+                            per_aa_scores = batch[3][pair_idx]
                             csv_writer = csv.writer(out_f)
-                            csv_writer.writerow(  # Target column
+                            csv_writer.writerow(
                                 (
                                     spec_idx,
                                     peptide,
-                                    idx % 2 == 0,
+                                    pair_idx % 2 == 0,  # Target column
                                     score,
                                     per_aa_scores,
                                 )
                             )
-                            idx += 1
                             out_f.close()
 
 
