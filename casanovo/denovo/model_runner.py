@@ -111,7 +111,9 @@ def _execute_existing(
         max_charge=config["max_charge"],
         precursor_mass_tol=config["precursor_mass_tol"],
         isotope_error_range=config["isotope_error_range"],
+        min_peptide_len=config["min_peptide_len"],
         n_beams=config["n_beams"],
+        top_match=config["top_match"],
         n_log=config["n_log"],
         out_writer=out_writer,
     )
@@ -158,7 +160,7 @@ def _execute_existing(
     trainer = pl.Trainer(
         accelerator="auto",
         auto_select_gpus=True,
-        devices=_get_devices(),
+        devices=_get_devices(config["no_gpu"]),
         logger=config["logger"],
         max_epochs=config["max_epochs"],
         num_sanity_val_steps=config["num_sanity_val_steps"],
@@ -266,6 +268,7 @@ def train(
         precursor_mass_tol=config["precursor_mass_tol"],
         isotope_error_range=config["isotope_error_range"],
         n_beams=config["n_beams"],
+        top_match=config["top_match"],
         n_log=config["n_log"],
         tb_summarywriter=config["tb_summarywriter"],
         warmup_iters=config["warmup_iters"],
@@ -304,11 +307,13 @@ def train(
         accelerator="auto",
         auto_select_gpus=True,
         callbacks=callbacks,
-        devices=_get_devices(),
+        devices=_get_devices(config["no_gpu"]),
+        enable_checkpointing=config["save_model"],
         logger=config["logger"],
         max_epochs=config["max_epochs"],
         num_sanity_val_steps=config["num_sanity_val_steps"],
         strategy=_get_strategy(),
+        val_check_interval=config["every_n_train_steps"],
     )
     # Train the model.
     trainer.fit(
@@ -448,9 +453,14 @@ def _get_strategy() -> Optional[DDPStrategy]:
     return None
 
 
-def _get_devices() -> Union[int, str]:
+def _get_devices(no_gpu: bool) -> Union[int, str]:
     """
     Get the number of GPUs/CPUs for the Trainer to use.
+
+    Parameters
+    ----------
+    no_gpu : bool
+        If true, disable all GPU usage.
 
     Returns
     -------
@@ -458,9 +468,9 @@ def _get_devices() -> Union[int, str]:
         The number of GPUs/CPUs to use, or "auto" to let PyTorch Lightning
         determine the appropriate number of devices.
     """
-    if any(
+    if not no_gpu and any(
         operator.attrgetter(device + ".is_available")(torch)()
-        for device in ["cuda", "backends.mps"]
+        for device in ("cuda",)
     ):
         return -1
     elif not (n_workers := utils.n_workers()):
