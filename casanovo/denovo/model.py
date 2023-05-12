@@ -967,7 +967,6 @@ class DBSpec2Pep(Spec2Pep):
     def on_predict_epoch_end(
         self, results: List[List[Tuple[str, List[float], List[List[float]]]]]
     ) -> None:
-        # print(results)
         if self.out_writer is None:
             return
         for pile in results:
