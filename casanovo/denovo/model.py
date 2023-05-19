@@ -953,6 +953,7 @@ class DBSpec2Pep(Spec2Pep):
 
     def predict_step(self, batch, *args):
         batch_res = []
+        print(batch)
         for new_batch, index in new_batch_generator(batch):
             pred, truth = self._forward_step(*new_batch)
             sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
@@ -1013,9 +1014,9 @@ def new_batch_generator(batch):
         # Reshape precursors
         precursors = batch[1][idx]
         precursors = precursors.repeat(len(peptides), 1)
-        # Reshape ms_spectra
-        ms_spectra = ms_spectra[ms_spectra != torch.FloatTensor([0, 0])]
-        ms_spectra = ms_spectra.reshape(len(ms_spectra) // 2, 2)
+        # Remove 0's from dataloader
+        mask = (ms_spectra[:, 0] != 0) | (ms_spectra[:, 1] != 0)
+        ms_spectra = ms_spectra[mask]
         ms_spectra = ms_spectra.repeat(len(peptides), 1, 1)
         # Create the new batch
         new_batch = (ms_spectra, precursors, peptides)
