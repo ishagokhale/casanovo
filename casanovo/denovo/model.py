@@ -953,7 +953,6 @@ class DBSpec2Pep(Spec2Pep):
 
     def predict_step(self, batch, *args):
         batch_res = []
-        print(batch)
         for new_batch, index in new_batch_generator(batch):
             pred, truth = self._forward_step(*new_batch)
             sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
@@ -968,7 +967,6 @@ class DBSpec2Pep(Spec2Pep):
     def on_predict_epoch_end(
         self, results: List[List[Tuple[str, List[float], List[List[float]]]]]
     ) -> None:
-        # print(results)
         if self.out_writer is None:
             return
         for pile in results:
