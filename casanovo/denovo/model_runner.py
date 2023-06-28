@@ -390,9 +390,9 @@ def db_search(
 
     # Create the Trainer object.
     trainer = pl.Trainer(
-        accelerator="cpu",
+        accelerator="auto",
         auto_select_gpus=True,
-        devices=1,  #!TODO: Unsure why this breaks when not 1, fix later
+        devices=_get_devices(config["no_gpu"]),
         logger=config["logger"],
         max_epochs=config["max_epochs"],
         num_sanity_val_steps=config["num_sanity_val_steps"],
