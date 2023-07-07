@@ -954,14 +954,15 @@ class DBSpec2Pep(Spec2Pep):
     def predict_step(self, batch, *args):
         batch_res = []
         for new_batch, index in new_batch_generator(batch):
-            pred, truth = self._forward_step(*new_batch)
-            sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
-            pred = sm(pred)
-            score_result, per_aa_score = calc_match_score(
-                pred, truth
-            )  # Calculate the score between spectra + peptide list
-            peptides = new_batch[2]
-            batch_res.append((index, peptides, score_result, per_aa_score))
+            with torch.set_grad_enabled(True):  # Fixes NaN!?
+                pred, truth = self._forward_step(*new_batch)
+                sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
+                pred = sm(pred)
+                score_result, per_aa_score = calc_match_score(
+                    pred, truth
+                )  # Calculate the score between spectra + peptide list
+                peptides = new_batch[2]
+                batch_res.append((index, peptides, score_result, per_aa_score))
         return batch_res
 
     def on_predict_epoch_end(
