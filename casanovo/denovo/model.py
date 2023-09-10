@@ -991,6 +991,7 @@ class DBSpec2Pep(Spec2Pep):
                             out_f.close()
 
 
+@torch.compile
 def new_batch_generator(batch):
     """
     Take a standard casanovo batch and change it to batch by spectra (multiple associated peptides in this format where
@@ -1023,6 +1024,7 @@ def new_batch_generator(batch):
         yield (new_batch, index)
 
 
+@torch.compile
 def calc_match_score(
     batch_all_aa_scores: torch.Tensor, truth_aa_indicies: torch.Tensor
 ) -> List[float]:

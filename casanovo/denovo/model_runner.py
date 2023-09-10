@@ -21,6 +21,9 @@ from ..denovo.model import Spec2Pep
 from ..denovo.model import DBSpec2Pep
 
 from pytorch_lightning.profiler import SimpleProfiler
+import torch._dynamo
+
+torch._dynamo.config.suppress_errors = True
 
 
 logger = logging.getLogger("casanovo")
@@ -356,6 +359,7 @@ def db_search(
         n_log=config["n_log"],
         out_writer=out_writer,
     )
+    model = torch.compile(model, backend="eager")
     # Read the MS/MS spectra for which to predict peptide sequences.
     peak_ext = (".mgf", ".h5", ".hdf5")
     if len(peak_filenames := _get_peak_filenames(peak_path, peak_ext)) == 0:
@@ -391,10 +395,10 @@ def db_search(
     loaders.setup(stage="test")
 
     # Create the Trainer object.
-    abs_experiment_dirpath = "/net/noble/vol2/home/vananth3/2023_vananth_denovo-dbsearch/results/2023-08-21_speedup"
+    abs_experiment_dirpath = "/net/noble/vol2/home/vananth3/2023_vananth_denovo-dbsearch/results/2023-08-21_speedup/profile-reports"
     profiler = SimpleProfiler(
         dirpath=abs_experiment_dirpath,
-        filename="casanovo_plasmodium_vanilla",
+        filename="casanovo_plasmodium_compile",
         extended=True,
     )
     trainer = pl.Trainer(
