@@ -969,6 +969,7 @@ class DBSpec2Pep(Spec2Pep):
                 )
         return batch_res
 
+    @torch.compile
     def smart_batch_gen(self, batch):
         all_psm = []
         enc = self.encoder(batch[0])
@@ -1014,14 +1015,13 @@ class DBSpec2Pep(Spec2Pep):
         results = np.array(results, dtype=object).squeeze()
         with open(self.out_writer.filename, "a") as out_f:
             csv_writer = csv.writer(out_f)
-            for batch in results:
-                for index, t_or_d, peptide, score, per_aa_scores in list(
-                    zip(*batch)
-                ):
-                    csv_writer.writerow(
-                        (index, peptide, bool(t_or_d), score, per_aa_scores)
-                    )
-            out_f.close()
+            for index, t_or_d, peptide, score, per_aa_scores in list(
+                zip(*results)
+            ):
+                csv_writer.writerow(
+                    (index, peptide, bool(t_or_d), score, per_aa_scores)
+                )
+        out_f.close()
 
 
 def calc_match_score(

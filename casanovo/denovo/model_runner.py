@@ -394,7 +394,7 @@ def db_search(
     abs_experiment_dirpath = "/net/noble/vol2/home/vananth3/2023_vananth_denovo-dbsearch/results/2023-08-21_speedup"
     profiler = SimpleProfiler(
         dirpath=abs_experiment_dirpath,
-        filename="casanovo_plasmodium_vanilla",
+        filename="casanovo_plasmodium_batch",
         extended=True,
     )
     trainer = pl.Trainer(
