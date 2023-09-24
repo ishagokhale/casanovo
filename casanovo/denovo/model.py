@@ -948,155 +948,80 @@ class DBSpec2Pep(Spec2Pep):
     Hijacks teacher-forcing implemented in Spec2Pep and uses it to predict scores between a spectra and associated peptide
     """
 
-    num_pairs = 64
+    num_pairs = 1024
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def predict_step(self, batch, *args):
         batch_res = []
-        self.batch_gen(batch)
-        for new_batch, index in new_batch_generator(batch):
+        for indexes, t_or_d, new_batch in self.smart_batch_gen(batch):
             with torch.set_grad_enabled(True):  # Fixes NaN!?
-                pred, truth = self._forward_step(*new_batch)
+                encoded_ms, precursors, peptides = new_batch
+                pred, truth = self.decoder(peptides, precursors, *encoded_ms)
                 sm = torch.nn.Softmax(dim=2)  # dim=2 is very important!
                 pred = sm(pred)
                 score_result, per_aa_score = calc_match_score(
                     pred, truth
                 )  # Calculate the score between spectra + peptide list
-                peptides = new_batch[2]
-                batch_res.append((index, peptides, score_result, per_aa_score))
+                batch_res.append(
+                    (indexes, t_or_d, peptides, score_result, per_aa_score)
+                )
         return batch_res
 
-    def batch_gen(self, batch):
+    def smart_batch_gen(self, batch):
         all_psm = []
         enc = self.encoder(batch[0])
         precursors = batch[1]
         indexes = batch[3]
         enc = list(zip(*enc))
-        for idx, ms_spectra in enumerate(batch[0]):
+        for idx, _ in enumerate(batch[0]):
             spec_peptides = batch[2][idx].split(",")
+            t_or_d = np.zeros(len(spec_peptides))
+            t_or_d[range(0, len(t_or_d), 2)] = 1
             spec_precursors = [precursors[idx]] * len(spec_peptides)
             spec_enc = [enc[idx]] * len(spec_peptides)
             spec_idx = [indexes[idx]] * len(spec_peptides)
             all_psm.extend(
-                list(zip(spec_enc, spec_precursors, spec_peptides, spec_idx))
+                list(
+                    zip(
+                        spec_enc,
+                        spec_precursors,
+                        spec_peptides,
+                        spec_idx,
+                        t_or_d,
+                    )
+                )
             )
         # continually grab n items from al_psm until list is exhausted
         while len(all_psm) > 0:
             batch = all_psm[: self.num_pairs]
             all_psm = all_psm[self.num_pairs :]
             batch = list(zip(*batch))
-            print("------------------")
-            print(type(batch))
-            print("------------------")
-            for b in batch:
-                print(type(b))
-            print("------------------")
-            for b in batch:
-                for t in b:
-                    print(type(t))
-            print("------------------")
-        """
-        Organization of batch:
-        batch is a list
-        each element in batch is a tuple of 32 items
-        for batch[0] it is a tuple of 2 items, each one a tensor (encoded ms)
-        for batch[1] it is a bunch of tensors (precursor data)
-        for batch[2] it is a bunch of srings (peptides)
-        for batch[3] it is a bunch of [filename, index] lists
-        """
-        quit()
+            encoded_ms = (
+                torch.stack([a[0] for a in batch[0]]),
+                torch.stack([a[1] for a in batch[0]]),
+            )
+            prec_data = torch.stack(batch[1])
+            pep_str = list(batch[2])
+            indexes = [a[1] for a in batch[3]]
+            t_or_d = batch[4]
+            yield (indexes, t_or_d, (encoded_ms, prec_data, pep_str))
 
-    def on_predict_epoch_end(
-        self, results: List[List[Tuple[str, List[float], List[List[float]]]]]
-    ) -> None:
+    def on_predict_epoch_end(self, results) -> None:
         if self.out_writer is None:
             return
-        for pile in results:
-            for clump in pile:
-                for batch in clump:
-                    spec_idx = batch[0]
-                    for pair_idx, peptide in enumerate(batch[1]):
-                        with open(self.out_writer.filename, "a") as out_f:
-                            score = batch[2][pair_idx]
-                            per_aa_scores = batch[3][pair_idx]
-                            csv_writer = csv.writer(out_f)
-                            csv_writer.writerow(
-                                (
-                                    spec_idx,
-                                    peptide,
-                                    pair_idx % 2 == 0,  # Target column
-                                    score,
-                                    per_aa_scores,
-                                )
-                            )
-                            out_f.close()
-
-    def _forward_step(
-        self,
-        spectra: torch.Tensor,
-        precursors: torch.Tensor,
-        sequences: List[str],
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        The forward learning step.
-
-        Parameters
-        ----------
-        spectra : torch.Tensor of shape (n_spectra, n_peaks, 2)
-            The spectra for which to predict peptide sequences.
-            Axis 0 represents an MS/MS spectrum, axis 1 contains the peaks in
-            the MS/MS spectrum, and axis 2 is essentially a 2-tuple specifying
-            the m/z-intensity pair for each peak. These should be zero-padded,
-            such that all the spectra in the batch are the same length.
-        precursors : torch.Tensor of size (n_spectra, 3)
-            The measured precursor mass (axis 0), precursor charge (axis 1), and
-            precursor m/z (axis 2) of each MS/MS spectrum.
-        sequences : List[str] of length n_spectra
-            The partial peptide sequences to predict.
-
-        Returns
-        -------
-        scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
-            The individual amino acid scores for each prediction.
-        tokens : torch.Tensor of shape (n_spectra, length)
-            The predicted tokens for each spectrum.
-        """
-        return self.decoder(sequences, precursors, *self.encoder(spectra))
-
-
-def new_batch_generator(batch):
-    """
-    Take a standard casanovo batch and change it to batch by spectra (multiple associated peptides in this format where
-    SEQ = TARGET1, DECOY1...)
-
-    Parameters
-    ----------
-    batch : Tuple(torch.Tensor, torch.Tensor, array)
-        Standard casanovo batch
-
-    Yields
-    -------
-    new_batch : (torch.Tensor, torch.Tensor, array)
-        A new batch that shares one spectra but has different ptptides to score against
-    """
-    batch_dict = {}
-    for idx, ms_spectra in enumerate(batch[0]):
-        # Batch by ms spectra and comma-separated peptides
-        # Split peptides into list
-        peptides = batch[2][idx].split(",")
-        # Reshape precursors
-        precursors = batch[1][idx]
-        precursors = precursors.repeat(len(peptides), 1)
-        # Remove 0's from dataloader
-        mask = (ms_spectra[:, 0] != 0) | (ms_spectra[:, 1] != 0)
-        ms_spectra = ms_spectra[mask]
-        ms_spectra = ms_spectra.repeat(len(peptides), 1, 1)
-        # Create the new batch
-        new_batch = (ms_spectra, precursors, peptides)
-        index = batch[3][idx][1]
-        yield (new_batch, index)
+        results = np.array(results, dtype=object).squeeze()
+        with open(self.out_writer.filename, "a") as out_f:
+            csv_writer = csv.writer(out_f)
+            for batch in results:
+                for index, t_or_d, peptide, score, per_aa_scores in list(
+                    zip(*batch)
+                ):
+                    csv_writer.writerow(
+                        (index, peptide, bool(t_or_d), score, per_aa_scores)
+                    )
+            out_f.close()
 
 
 def calc_match_score(
